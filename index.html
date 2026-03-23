@@ -676,6 +676,57 @@ tailwind.config = {
   /* iOS safe area for sticky bar space */
   .scan-tab-spacer { height: calc(4rem + env(safe-area-inset-bottom)); }
 
+  /* ── CAMERA / GALLERY BUTTONS ── */
+  .upload-actions {
+    display: flex;
+    gap: 0.65rem;
+    margin-top: 1.1rem;
+    justify-content: center;
+  }
+  .btn-upload-action {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    border: 1.5px solid;
+    white-space: nowrap;
+  }
+  .btn-upload-action.camera {
+    background: #635bff;
+    color: white;
+    border-color: #635bff;
+    box-shadow: 0 3px 10px rgba(99,91,255,0.3);
+  }
+  .btn-upload-action.camera:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 16px rgba(99,91,255,0.4);
+  }
+  .btn-upload-action.gallery {
+    background: white;
+    color: #3c4257;
+    border-color: #e6ebf1;
+  }
+  .btn-upload-action.gallery:hover {
+    border-color: #c1c9d4;
+    background: #f6f9fc;
+  }
+  /* Solo mostrar boton camara en moviles */
+  .btn-upload-action.camera { display: none; }
+  @media (hover: none) and (pointer: coarse) {
+    .btn-upload-action.camera { display: flex; }
+    .upload-zone .upload-default-hint { display: none; }
+    .upload-zone .upload-mobile-hint  { display: block; }
+  }
+  .upload-mobile-hint { display: none; }
+  .upload-default-hint { display: block; }
+
   /* Mobile */
   @media (max-width: 600px) {
     header { padding: calc(0.75rem + var(--safe-top)) 1rem 0.75rem; }
@@ -936,11 +987,21 @@ tailwind.config = {
     </div>
 
     <!-- Upload zone -->
-    <div class="upload-zone" id="uploadZone" onclick="triggerFileInput()">
+    <div class="upload-zone" id="uploadZone">
       <span class="upload-icon">📄</span>
       <div class="upload-title">Sube tu factura</div>
-      <div class="upload-sub">Arrastra aquí o toca para seleccionar · JPG · PNG · WEBP<br>Selecciona hasta 10 archivos para procesamiento en lote</div>
-      <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" />
+      <div class="upload-sub upload-default-hint">Arrastra aquí o toca para seleccionar · JPG · PNG · WEBP<br>Selecciona hasta 10 archivos para procesamiento en lote</div>
+      <div class="upload-sub upload-mobile-hint">Toma una foto o elige de tu galería<br>Selecciona hasta 10 archivos para procesamiento en lote</div>
+
+      <!-- Inputs ocultos: galería (multiple) y cámara (single, capture) -->
+      <input type="file" id="fileInput"       accept="image/*" multiple style="display:none;" />
+      <input type="file" id="cameraInput"     accept="image/*" capture="environment" style="display:none;" />
+
+      <!-- Botones de acción -->
+      <div class="upload-actions">
+        <button class="btn-upload-action camera" onclick="triggerCameraInput()" type="button">📷 Cámara</button>
+        <button class="btn-upload-action gallery" onclick="triggerFileInput()" type="button">🖼 Galería / Archivo</button>
+      </div>
     </div>
 
     <!-- Preview -->
@@ -1323,6 +1384,7 @@ function handleFileInput(e) {
   else loadBatch(files);
 }
 document.getElementById('fileInput').addEventListener('change', handleFileInput);
+document.getElementById('cameraInput').addEventListener('change', handleFileInput);
 
 const zone = document.getElementById('uploadZone');
 zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
@@ -2026,9 +2088,20 @@ function resetAll() {
   newInput.id       = 'fileInput';
   newInput.accept   = 'image/*';
   newInput.multiple = true;
+  newInput.style.display = 'none';
   oldInput.parentNode.replaceChild(newInput, oldInput);
-  // Reattach the unified change handler (single + batch)
   newInput.addEventListener('change', handleFileInput);
+
+  // Fresh clone for camera input too
+  const oldCamera = document.getElementById('cameraInput');
+  const newCamera = document.createElement('input');
+  newCamera.type    = 'file';
+  newCamera.id      = 'cameraInput';
+  newCamera.accept  = 'image/*';
+  newCamera.setAttribute('capture', 'environment');
+  newCamera.style.display = 'none';
+  oldCamera.parentNode.replaceChild(newCamera, oldCamera);
+  newCamera.addEventListener('change', handleFileInput);
 
   // Single-invoice UI
   document.getElementById('previewArea').style.display = 'none';
@@ -2113,6 +2186,10 @@ function toggleSetupDetails() {
 
 function triggerFileInput() {
   const input = document.getElementById('fileInput');
+  if (input) input.click();
+}
+function triggerCameraInput() {
+  const input = document.getElementById('cameraInput');
   if (input) input.click();
 }
 function show(id) {
