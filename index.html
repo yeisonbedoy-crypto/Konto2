@@ -928,6 +928,132 @@ tailwind.config = {
     .chart-container canvas { max-height: 200px !important; }
   }
 
+  /* ── CAMERA MODAL ── */
+  .camera-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 500;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(env(safe-area-inset-top) + 0.75rem) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 1rem) env(safe-area-inset-left);
+  }
+  .camera-overlay.open { display: flex; }
+
+  .camera-topbar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.5rem;
+    z-index: 10;
+  }
+  .camera-title {
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+  }
+  .camera-close-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .camera-close-btn:hover { background: rgba(255,255,255,0.25); }
+
+  .camera-video-wrap {
+    flex: 1;
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    margin: 0.75rem 0;
+  }
+  #cameraVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+    background: #111;
+  }
+  /* Viewfinder corner guides */
+  .camera-video-wrap::before,
+  .camera-video-wrap::after {
+    content: '';
+    position: absolute;
+    width: 50px; height: 50px;
+    border-color: rgba(255,255,255,0.7);
+    border-style: solid;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .camera-video-wrap::before {
+    top: 12px; left: 12px;
+    border-width: 3px 0 0 3px;
+    border-radius: 6px 0 0 0;
+  }
+  .camera-video-wrap::after {
+    bottom: 12px; right: 12px;
+    border-width: 0 3px 3px 0;
+    border-radius: 0 0 6px 0;
+  }
+
+  .camera-bottombar {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+  }
+  .camera-switch-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .camera-switch-btn:hover { background: rgba(255,255,255,0.25); }
+
+  .camera-capture-btn {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: white;
+    border: 5px solid rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: transform 0.12s, background 0.12s;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+    flex-shrink: 0;
+    outline: none;
+  }
+  .camera-capture-btn:active { transform: scale(0.92); background: #e2e8f0; }
+
+  .camera-permission-msg {
+    display: none;
+    text-align: center;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    padding: 2rem;
+  }
+  .camera-permission-msg p { font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.8; }
+  .camera-permission-msg strong { font-size: 1rem; display: block; margin-bottom: 1rem; }
+
 </style>
 </head>
 <body>
@@ -993,13 +1119,12 @@ tailwind.config = {
       <div class="upload-sub upload-default-hint">Arrastra aquí o toca para seleccionar · JPG · PNG · WEBP<br>Selecciona hasta 10 archivos para procesamiento en lote</div>
       <div class="upload-sub upload-mobile-hint">Toma una foto o elige de tu galería<br>Selecciona hasta 10 archivos para procesamiento en lote</div>
 
-      <!-- Inputs ocultos: galería (multiple) y cámara (single, capture) -->
-      <input type="file" id="fileInput"       accept="image/*" multiple style="display:none;" />
-      <input type="file" id="cameraInput"     accept="image/*" capture="environment" style="display:none;" />
+      <!-- Solo input de galería (múltiple). La cámara ahora usa getUserMedia -->
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none;" />
 
       <!-- Botones de acción -->
       <div class="upload-actions">
-        <button class="btn-upload-action camera" onclick="triggerCameraInput()" type="button">📷 Cámara</button>
+        <button class="btn-upload-action camera" onclick="openCamera()" type="button">📷 Cámara</button>
         <button class="btn-upload-action gallery" onclick="triggerFileInput()" type="button">🖼 Galería / Archivo</button>
       </div>
     </div>
@@ -1276,6 +1401,28 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- Camera modal -->
+<div class="camera-overlay" id="cameraOverlay">
+  <div class="camera-topbar">
+    <div class="camera-title">📷 Tomar foto de factura</div>
+    <button class="camera-close-btn" onclick="closeCamera()" type="button">✕</button>
+  </div>
+
+  <div class="camera-video-wrap" id="cameraVideoWrap">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div class="camera-permission-msg" id="cameraPermMsg">
+      <strong>Sin acceso a la cámara</strong>
+      <p>Permite el acceso a la cámara en tu navegador e inténtalo de nuevo.</p>
+    </div>
+  </div>
+
+  <div class="camera-bottombar">
+    <button class="camera-switch-btn" id="cameraSwitchBtn" onclick="switchCamera()" type="button" title="Cambiar cámara">🔄</button>
+    <button class="camera-capture-btn" id="cameraCaptureBtn" onclick="takePhoto()" type="button" title="Tomar foto" aria-label="Tomar foto"></button>
+    <div style="width:48px;"></div><!-- spacer para centrar el botón -->
+  </div>
+</div>
+
 <script>
 // ── STORAGE HELPERS ──
 function getKey() { return localStorage.getItem('factura_key') || ''; }
@@ -1384,7 +1531,7 @@ function handleFileInput(e) {
   else loadBatch(files);
 }
 document.getElementById('fileInput').addEventListener('change', handleFileInput);
-document.getElementById('cameraInput').addEventListener('change', handleFileInput);
+
 
 const zone = document.getElementById('uploadZone');
 zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
@@ -2092,16 +2239,6 @@ function resetAll() {
   oldInput.parentNode.replaceChild(newInput, oldInput);
   newInput.addEventListener('change', handleFileInput);
 
-  // Fresh clone for camera input too
-  const oldCamera = document.getElementById('cameraInput');
-  const newCamera = document.createElement('input');
-  newCamera.type    = 'file';
-  newCamera.id      = 'cameraInput';
-  newCamera.accept  = 'image/*';
-  newCamera.setAttribute('capture', 'environment');
-  newCamera.style.display = 'none';
-  oldCamera.parentNode.replaceChild(newCamera, oldCamera);
-  newCamera.addEventListener('change', handleFileInput);
 
   // Single-invoice UI
   document.getElementById('previewArea').style.display = 'none';
@@ -2188,9 +2325,87 @@ function triggerFileInput() {
   const input = document.getElementById('fileInput');
   if (input) input.click();
 }
-function triggerCameraInput() {
-  const input = document.getElementById('cameraInput');
-  if (input) input.click();
+
+// ── CAMERA (getUserMedia) ──
+let cameraStream   = null;
+let cameraFacingMode = 'environment'; // 'environment'=trasera, 'user'=frontal
+
+async function openCamera() {
+  const overlay = document.getElementById('cameraOverlay');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  await startStream();
+}
+
+async function startStream() {
+  // Stop any existing stream
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+
+  const video     = document.getElementById('cameraVideo');
+  const permMsg   = document.getElementById('cameraPermMsg');
+  const captureBtn = document.getElementById('cameraCaptureBtn');
+
+  video.style.display = 'block';
+  permMsg.style.display = 'none';
+  captureBtn.disabled   = true;
+
+  const constraints = {
+    video: {
+      facingMode: cameraFacingMode,
+      width:  { ideal: 1920 },
+      height: { ideal: 1080 }
+    },
+    audio: false
+  };
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = cameraStream;
+    await video.play();
+    captureBtn.disabled = false;
+  } catch (err) {
+    // Permission denied or camera not available
+    video.style.display = 'none';
+    permMsg.style.display = 'block';
+    console.warn('Camera error:', err);
+  }
+}
+
+async function switchCamera() {
+  cameraFacingMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
+  await startStream();
+}
+
+function takePhoto() {
+  const video  = document.getElementById('cameraVideo');
+  const canvas = document.createElement('canvas');
+  canvas.width  = video.videoWidth  || 1280;
+  canvas.height = video.videoHeight || 720;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  // Build a file-like object from the canvas
+  canvas.toBlob(blob => {
+    if (!blob) return;
+    const file = new File([blob], 'camara_factura_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+    closeCamera();
+    loadFile(file);
+    // Show preview & scan button
+    document.getElementById('btnScan').style.display = 'block';
+  }, 'image/jpeg', 0.92);
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const video = document.getElementById('cameraVideo');
+  video.srcObject = null;
+  document.getElementById('cameraOverlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 function show(id) {
   const el = document.getElementById(id);
