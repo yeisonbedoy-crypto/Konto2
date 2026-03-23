@@ -3145,6 +3145,27 @@ window.addEventListener('appinstalled', () => {
 if (window.navigator.standalone === true) {
   console.log('✓ Ejecutándose en modo standalone (aplicación instalada)');
 }
+
+// ── CAMERA BUTTON VISIBILITY (JS-based, more reliable than CSS media query alone) ──
+(function detectCameraSupport() {
+  // Show camera button on any device that has getUserMedia (phones, tablets, laptops with webcam)
+  const hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  const cameraBtns = document.querySelectorAll('.btn-upload-action.camera');
+  const mobileHint  = document.querySelector('.upload-mobile-hint');
+  const defaultHint = document.querySelector('.upload-default-hint');
+
+  if (hasCamera) {
+    cameraBtns.forEach(btn => { btn.style.display = 'flex'; });
+    // On touch devices, swap the hint text too
+    const isTouch = navigator.maxTouchPoints > 0;
+    if (isTouch && mobileHint && defaultHint) {
+      defaultHint.style.display = 'none';
+      mobileHint.style.display  = 'block';
+    }
+  } else {
+    cameraBtns.forEach(btn => { btn.style.display = 'none'; });
+  }
+})();
 </script>
 
 </body>
