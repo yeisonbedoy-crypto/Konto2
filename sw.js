@@ -1,4 +1,4 @@
-const CACHE_NAME = 'konta-v1';
+const CACHE_NAME = 'konta-v2';
 const urlsToCache = [
   './',
   './index.html',
